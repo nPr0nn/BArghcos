@@ -23,14 +23,19 @@ void core_loop(void *ctx, void_func_ptr game_loop) {
 int main(void) {
   // Initialization
   //--------------------------------------------------------------------------------------
-  const int screenWidth = 1280;
-  const int screenHeight = 720;
+  i32 screenWidth  = 1280;
+  i32 screenHeight = 720; 
 
-  SetTraceLogLevel(LOG_NONE);
+  // SetTraceLogLevel(LOG_NONE);
   SetConfigFlags(FLAG_MSAA_4X_HINT);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 
-  InitWindow(screenWidth, screenHeight, "Livreeeee");
+  #ifdef PLATFORM_WEB 
+    InitWindow(1280, 720, "Livreeeee");
+  #else
+    InitWindow(0, 0, "Livre");
+  #endif
+
   SetTargetFPS(60); // Set our game to run at 60 frames-per-second
  
   Context game;

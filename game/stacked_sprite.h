@@ -9,12 +9,21 @@
 #include "../libs/raylib/raymath.h"
 #include "../libs/cebus.h"
 
+#include "points.h"
+#include "collisions.h"
+
 typedef struct StackedSprite { 
   char* name;
+  
+  i32 lap;
+  i32 progress; 
+  i32 real_progress; 
+
   Vector2 pos;  
  
   Vector2 dir;  
-  f32 vel;
+  f32 speed;
+  Vector2 vel;
   f32 fricc;
   f32 acc;
   
@@ -29,6 +38,10 @@ typedef struct StackedSprite {
   bool steering;
   bool confused;
   f32 cool_down;
+
+  Vector2* targets;
+  i32 num_targets;
+  i32 current_target_index;
    
   // Texture2D texture;
   Texture2D* sprites; 
@@ -45,58 +58,101 @@ void load_stacked_sprite(StackedSprite* stacked_sprite){
     stacked_sprite->sprites[i] = LoadTextureFromImage(temp);
   }
 
-  stacked_sprite->angle = 0.0f;
-  stacked_sprite->vel   = 0.0f;
-  stacked_sprite->fricc = -0.02f;
+  stacked_sprite->angle = -90;
+  stacked_sprite->speed   = 0.0f;
+  stacked_sprite->vel     = Vector2Zero();
+  stacked_sprite->fricc = 0.982f;
   stacked_sprite->acc   = 0.0f;
 
   stacked_sprite->radius = 10; 
   stacked_sprite->steering = false;
   
   stacked_sprite->confused = false;
-  stacked_sprite->cool_down = 1.0f;
+  stacked_sprite->cool_down = 0.3f;
 
+  stacked_sprite->current_target_index = 0;
+  
   stacked_sprite->dir = Vector2Rotate((Vector2){stacked_sprite->radius, 0.0f}, stacked_sprite->angle * DEG2RAD); 
 }
 
-void update_player_stacked_sprite(StackedSprite* player){
-  
-  if(player->confused){
-    if(player->cool_down >= 0.0f) { 
-      player->cool_down -= GetFrameTime();  
-      player->angle += 0.2f;
+void create_targets(StackedSprite* stacked_sprite, Point* lines, i32 num_lines){
+  stacked_sprite->targets = (Vector2*) malloc(sizeof(Vector2) * 4 * num_lines);
+  stacked_sprite->num_targets = 0;
+  stacked_sprite->current_target_index = 0;
+
+  for(i32 j = 0; j < 4; j++){ 
+    for(i32 i = 0; i < num_lines-1; i += 2){
+      stacked_sprite->targets[stacked_sprite->num_targets++] = RandomPointOnLine(lines[i].pos, lines[i+1].pos);
     }
-    else { 
+  }
+}
+
+void update_player(StackedSprite* player){
+
+  // printf("%f %f\n", player->pos.x, player->pos.y);
+
+  if(player->confused){
+    player->cool_down -= GetFrameTime();
+    if(player->cool_down < 0.0f){
       player->confused = false;
-      player->cool_down = 1.0f;
+      player->cool_down = 0.3f;
+    }
+    else{ 
+      player->angle += 1.5f;
+      player->steering = true;
     }
   }
 
-  if(IsKeyDown(KEY_RIGHT) && !player->confused) {    
-    player->angle += 1.0f;
+  if(IsKeyDown(KEY_RIGHT) & !player->confused) {    
+    player->angle += 1.5f;
     player->steering = true;
   }
-  if(IsKeyDown(KEY_LEFT) && !player->confused) {    
-    player->angle -= 1.0f;
+  if(IsKeyDown(KEY_LEFT) & !player->confused) {
+    player->angle -= 1.5f;
     player->steering = true;
-  } 
-  
+  }  
   player->dir = Vector2Rotate((Vector2){player->radius, 0.0f}, player->angle * DEG2RAD);   
-  if(player->vel > 5.0f) player->vel = 5.0f;
- 
-  if (IsKeyDown(KEY_SPACE) && !player->confused) {
-    player->acc = 0.1f;
-    player->vel += player->acc; 
+
+  if(IsKeyDown(KEY_SPACE) & !player->confused) {
+    player->acc = 32.0f;
+    player->speed += player->acc * GetFrameTime(); 
   } 
- if(player->confused){
-    player->acc = -2.0f;
-    player->vel += player->acc;
+
+  if(player->confused){
+    player->acc = -80.0f;
+    player->speed += player->acc * GetFrameTime();
+  };
+ 
+  if(player->speed > 44.0f) player->speed = 44.0f;
+  player->speed = player->speed * player->fricc;  
+
+  player->vel = Vector2Scale(player->dir, player->speed);
+}
+
+void update_enemy(StackedSprite* enemy){
+  
+  if(enemy->confused){
+    enemy->acc = -80.0f;
+    enemy->speed += enemy->acc * GetFrameTime();
+  };
+ 
+  if(enemy->confused == false){
+   
+    enemy->dir = Vector2Normalize(Vector2Subtract(enemy->targets[enemy->current_target_index], enemy->pos));
+    enemy->angle = atan2f(enemy->dir.y, enemy->dir.x) * RAD2DEG;
+
+    enemy->acc = GetRandomFloat(200.0f, 350);
+    enemy->speed += enemy->acc * GetFrameTime();
+    //
+    // if(enemy->speed > 84.0f) enemy->speed = 84.0f;
+    enemy->speed = enemy->speed * enemy->fricc;
   }
+
+  enemy->vel = Vector2Scale(enemy->dir, enemy->speed);
   
-  player->pos = Vector2Add(player->pos, Vector2Scale(Vector2Normalize(player->dir), player->vel));   
-  
-  player->vel += player->fricc;
-  if(player->vel <= 0.0001f) player->vel = 0.0f; 
+  // enemy->speed += enemy->acc * GetFrameTime();
+  // if(enemy->speed > 64.0f) enemy->speed = 64.0f;
+  // enemy->speed = enemy->speed * enemy->fricc;
 }
 
 void draw_stacked_sprite(StackedSprite* stacked_sprite){ 

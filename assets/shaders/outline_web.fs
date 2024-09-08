@@ -6,7 +6,6 @@ varying vec2 fragTexCoord;
 varying vec4 fragColor;
 
 uniform float time;
-uniform vec4 tintColor;
 
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
@@ -16,7 +15,7 @@ uniform vec2 resolution;
 void main()
 {
     float baseOutlineSize = 4.0; // Base outline size
-    float outlineSizeAmplitude = 3.0; // Amplitude of oscillation
+    float outlineSizeAmplitude = 4.0; // Amplitude of oscillation
     float outlineSizeFrequency = 1.0; // Frequency of oscillation
     vec4 outlineColor = vec4(0.8125, 0.9609, 0.9648, 1.0); 
     
@@ -40,6 +39,6 @@ void main()
     vec4 color = mix(vec4(0.0), outlineColor, outline);
 
     // Output the final color
-    gl_FragColor = mix(color, tintColor, texel.a);
+    gl_FragColor = mix(color, texel, texel.a);
 }
 

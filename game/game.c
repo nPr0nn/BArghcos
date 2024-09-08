@@ -1,288 +1,467 @@
 
-#include "context.h"
-#include "stacked_sprite.h"
 #include "collisions.h"
+#include "context.h"
+#include "points.h"
+#include "stacked_sprite.h"
 
 #include <stdio.h>
 
 #define EDITOR 1
 
 #if defined(PLATFORM_DESKTOP)
-    #define GLSL_VERSION            330
-#else   // PLATFORM_ANDROID, PLATFORM_WEB
-    #define GLSL_VERSION            100
+#define GLSL_VERSION 330
+#else // PLATFORM_ANDROID, PLATFORM_WEB
+#define GLSL_VERSION 100
 #endif
 
-void game_init(void* ctx) {
-  Context* game = (Context*) ctx;  
-  i32 screenWidth  = GetScreenWidth();
+void game_init(void *ctx) {
+  Context *game = (Context *)ctx;
+
+  InitAudioDevice();
+  game->m = LoadMusicStream("assets/song.mp3");
+  PlayMusicStream(game->m);
+
+  game->pirateShip.lap = 0;
+  game->pirateShip.progress = 0;
+
+  i32 screenWidth = GetScreenWidth();
   i32 screenHeight = GetScreenHeight();
 
   // Set the dimensions of the screen
-  Vector2 screen_dims = (Vector2) { screenWidth, screenHeight };
+  Vector2 screen_dims = (Vector2){screenWidth, screenHeight};
 
   // Map
-  Image image_map  = LoadImage("assets/maps/track2.png");
+  Image image_map = LoadImage("assets/maps/track2.png");
   // Image image_map_overlay = LoadImage("assets/maps/track22.png");
-  game->map_overlay_offset = (Vector2){-10,-9};
-  game->map_top_left       = (Vector2){0,0}; 
-  game->map = LoadTextureFromImage(image_map); 
+  game->map_overlay_offset = (Vector2){-10, -9};
+  game->map_top_left = (Vector2){0, 0};
+  game->map = LoadTextureFromImage(image_map);
   game->map_overlay = game->map;
-  // game->map_overlay = LoadTextureFromImage(image_map_overlay);
+// game->map_overlay = LoadTextureFromImage(image_map_overlay);
 
-  // Ocean Background 
-  #ifndef PLATFORM_WEB
-  game->bgShader = LoadShader(0, TextFormat("assets/shaders/background.fs", GLSL_VERSION)); 
-  #endif
-  #ifdef PLATFORM_WEB
-  game->bgShader = LoadShader(0, TextFormat("assets/shaders/background_web.fs", GLSL_VERSION)); 
-  #endif
+// Ocean Background
+#ifndef PLATFORM_WEB
+  game->bgShader =
+      LoadShader(0, TextFormat("assets/shaders/background.fs", GLSL_VERSION));
+#endif
+#ifdef PLATFORM_WEB
+  game->bgShader = LoadShader(
+      0, TextFormat("assets/shaders/background_web.fs", GLSL_VERSION));
+#endif
 
   game->timeLoc = GetShaderLocation(game->bgShader, "time");
-  game->playerLoc = GetShaderLocation(game->bgShader, "playerPos");  
+  game->playerLoc = GetShaderLocation(game->bgShader, "playerPos");
   i32 resolutionLoc = GetShaderLocation(game->bgShader, "resolution");
-  SetShaderValue(game->bgShader, resolutionLoc, &screen_dims, SHADER_UNIFORM_VEC2);
+  SetShaderValue(game->bgShader, resolutionLoc, &screen_dims,
+                 SHADER_UNIFORM_VEC2);
 
-  // Ice Outline
-  #ifndef PLATFORM_WEB
-  game->iceShader = LoadShader(0, TextFormat("assets/shaders/outline.fs", GLSL_VERSION));
-  #endif
-  #ifdef PLATFORM_WEB
-  game->iceShader = LoadShader(0, TextFormat("assets/shaders/outline_web.fs", GLSL_VERSION));
-  #endif
+// Ice Outline
+#ifndef PLATFORM_WEB
+  game->iceShader =
+      LoadShader(0, TextFormat("assets/shaders/outline.fs", GLSL_VERSION));
+#endif
+#ifdef PLATFORM_WEB
+  game->iceShader =
+      LoadShader(0, TextFormat("assets/shaders/outline_web.fs", GLSL_VERSION));
+#endif
 
-  game->timeLoc2 = GetShaderLocation(game->iceShader, "time"); 
+#ifndef PLATFORM_WEB
+  game->tintShader =
+      LoadShader(0, TextFormat("assets/shaders/tint.fs", GLSL_VERSION));
+#endif
+#ifdef PLATFORM_WEB
+  game->tintShader =
+      LoadShader(0, TextFormat("assets/shaders/tint_web.fs", GLSL_VERSION));
+#endif
+  i32 tintColorLoc2 = GetShaderLocation(game->tintShader, "tintColor");
+  float tint_color2[4] = {(51) / (255.0f), (149) / (255.0f), (193) / (255.0f),
+                          1.0f};
+  // float tint_color2[4] = {(211)/(255.0f), (173)/(255.0f),
+  // (67)/(255.0f), 1.0f};
+  SetShaderValue(game->tintShader, tintColorLoc2, &tint_color2,
+                 SHADER_UNIFORM_VEC4);
+
+  game->timeLoc2 = GetShaderLocation(game->iceShader, "time");
   resolutionLoc = GetShaderLocation(game->iceShader, "resolution");
-  SetShaderValue(game->iceShader, resolutionLoc, &screen_dims, SHADER_UNIFORM_VEC2);
-  
-  // All Ships Settings 
+  SetShaderValue(game->iceShader, resolutionLoc, &screen_dims,
+                 SHADER_UNIFORM_VEC2);
+
+  // All Ships Settings
   // ----------------------------------------------------------------------
   // pirateShip
   game->pirateShip = (StackedSprite){
-    .name              = "car",
-    .pos               = (Vector2) {500, 400},
-    .sprite_sheet_path = "assets/ships/pirateShip.png",
-    .num_layers        = 15, 
-    .scale             = 1.0,
-    .y_offset          = 10, 
-    .angle             = 0,
+      .name = "car",
+      .pos = (Vector2){2100, 1486},
+      .sprite_sheet_path = "assets/ships/pirateShip.png",
+      .num_layers = 15,
+      .scale = 1.0,
+      .y_offset = 10,
+      .angle = 0,
   };
   load_stacked_sprite(&game->pirateShip);
 
   // gamutoShip
   game->gamutoShip = (StackedSprite){
-    .name              = "car",
-    .pos               = (Vector2) {0, -40},
-    .sprite_sheet_path = "assets/ships/gamutoShip.png",
-    .num_layers        = 15, 
-    .scale             = 1.0,
-    .y_offset          = 10, 
-    .angle             = 0,
+      .name = "car",
+      .pos = (Vector2){2100, 1408},
+      .sprite_sheet_path = "assets/ships/gamutoShip.png",
+      .num_layers = 15,
+      .scale = 1.0,
+      .y_offset = 10,
+      .angle = 0,
   };
   load_stacked_sprite(&game->gamutoShip);
 
   // ghostShip
   game->ghostShip = (StackedSprite){
-    .name              = "car",
-    .pos               = (Vector2) {40, -40},
-    .sprite_sheet_path = "assets/ships/ghostShip.png",
-    .num_layers        = 15, 
-    .scale             = 1,
-    .y_offset          = 10, 
-    .angle             = 0,
+      .name = "car",
+      .pos = (Vector2){2150, 1486},
+      .sprite_sheet_path = "assets/ships/ghostShip.png",
+      .num_layers = 15,
+      .scale = 1,
+      .y_offset = 10,
+      .angle = 0,
   };
   load_stacked_sprite(&game->ghostShip);
 
   // jangadaShip
   game->jangadaShip = (StackedSprite){
-    .name              = "car",
-    .pos               = (Vector2) {80, -40},
-    .sprite_sheet_path = "assets/ships/jangadaShip.png",
-    .num_layers        = 15, 
-    .scale             = 1,
-    .y_offset          = 10, 
-    .angle             = 0,
+      .name = "car",
+      .pos = (Vector2){2150, 1408},
+      .sprite_sheet_path = "assets/ships/jangadaShip.png",
+      .num_layers = 15,
+      .scale = 1,
+      .y_offset = 10,
+      .angle = 0,
   };
   load_stacked_sprite(&game->jangadaShip);
 
   // merryShip
   game->merryShip = (StackedSprite){
-    .name              = "car",
-    .pos               = (Vector2) {120, -40},
-    .sprite_sheet_path = "assets/ships/merryShip.png",
-    .num_layers        = 15, 
-    .scale             = 1,
-    .y_offset          = 10, 
-    .angle             = 0,
+      .name = "car",
+      .pos = (Vector2){2150, 1566},
+      .sprite_sheet_path = "assets/ships/merryShip.png",
+      .num_layers = 15,
+      .scale = 1,
+      .y_offset = 10,
+      .angle = 0,
   };
   load_stacked_sprite(&game->merryShip);
 
   // monsterShip
   game->monsterShip = (StackedSprite){
-    .name              = "car",
-    .pos               = (Vector2) {160, -40},
-    .sprite_sheet_path = "assets/ships/monsterShip.png",
-    .num_layers        = 12, 
-    .scale             = 0.75,
-    .y_offset          = 10, 
-    .angle             = 0,
+      .name = "car",
+      .pos = (Vector2){2100, 1566},
+      .sprite_sheet_path = "assets/ships/monsterShip.png",
+      .num_layers = 12,
+      .scale = 0.75,
+      .y_offset = 10,
+      .angle = 0,
   };
   load_stacked_sprite(&game->monsterShip);
 
   // pinguimShip
   game->pinguimShip = (StackedSprite){
-    .name              = "car",
-    .pos               = (Vector2) {200, -40},
-    .sprite_sheet_path = "assets/ships/pinguimShip.png",
-    .num_layers        = 15, 
-    .scale             = 1.0,
-    .y_offset          = 10, 
-    .angle             = 0,
+      .name = "car",
+      .pos = (Vector2){2100, 1642},
+      .sprite_sheet_path = "assets/ships/pinguimShip.png",
+      .num_layers = 15,
+      .scale = 1.0,
+      .y_offset = 10,
+      .angle = 0,
   };
-  load_stacked_sprite(&game->pinguimShip); 
+  load_stacked_sprite(&game->pinguimShip);
 
-   // windowsShip
+  // windowsShip
   game->windowsShip = (StackedSprite){
-    .name              = "car",
-    .pos               = (Vector2) {240, -40},
-    .sprite_sheet_path = "assets/ships/windowsShip.png",
-    .num_layers        = 14, 
-    .scale             = 1.0,
-    .y_offset          = 10, 
-    .angle             = 0,
+      .name = "car",
+      .pos = (Vector2){2150, 1642},
+      .sprite_sheet_path = "assets/ships/windowsShip.png",
+      .num_layers = 14,
+      .scale = 1.0,
+      .y_offset = 10,
+      .angle = 0,
   };
-  load_stacked_sprite(&game->windowsShip); 
+  load_stacked_sprite(&game->windowsShip);
 
   //----------------------------------------------------------------------
 
-  game->camera.target = (Vector2){0,0};
-  game->camera.offset = (Vector2){screenWidth*0.5f, screenHeight*0.5f - 64}; 
+  game->camera.target = (Vector2){0, 0};
+  game->camera.offset = (Vector2){screenWidth * 0.5f, screenHeight * 0.5f - 64};
   game->camera.rotation = 0.0f;
   game->camera.zoom = 5.0f;
 
-   // Track Points
-  game->collisions = malloc(sizeof(Vector2) * 100);
-  i32 new_count = 0;
-  // game->collisions = read_points_from_file("colliders.dat", &new_count);
-  // printf("read %d collisions\n", new_count);
-  game->collisions_count = new_count; 
+  // Track points
+
+  game->selectedCount = 0;
+  game->selected = (Point *)malloc(100 * sizeof(Point));
+
+  game->innerTrack = get_inner_track();
+  game->innerTrackCount = 30;
+
+  game->outerTrack = get_outer_track();
+  game->outerTrackCount = 31;
+
+  game->checkMarks = get_check_marks();
+  game->checkMarkCount = 46;
+
+  create_targets(&game->gamutoShip, game->checkMarks, game->checkMarkCount);
+  create_targets(&game->ghostShip, game->checkMarks, game->checkMarkCount);
+  create_targets(&game->jangadaShip, game->checkMarks, game->checkMarkCount);
+  create_targets(&game->merryShip, game->checkMarks, game->checkMarkCount);
+  create_targets(&game->monsterShip, game->checkMarks, game->checkMarkCount);
+  create_targets(&game->pinguimShip, game->checkMarks, game->checkMarkCount);
+  create_targets(&game->windowsShip, game->checkMarks, game->checkMarkCount);
+
+  // for(i32 i = 0; i < game->checkMarkCount; i++){
+  //   printf("track[%d].pos = (Vector2){%f, %f};\n", i,
+  //   game->checkMarks[i].pos.x, game->checkMarks[i].pos.y);
+  //   printf("track[%d].radius = %f;\n", i, game->checkMarks[i].radius);
+  // }
+
+  game->end = false;
 }
 
-void game_update(Context* game);
-void game_draw(Context* game);
+void game_update(Context *game);
+void game_draw(Context *game);
 
-void game_loop(void* ctx){
-  Context* game = (Context*) ctx;
+void game_loop(void *ctx) {
+  Context *game = (Context *)ctx;
+  UpdateMusicStream(game->m);
+
+  while(game->end) {
+    i32 screenWidth = GetScreenWidth();
+    i32 screenHeight = GetScreenHeight();
+    
+    BeginDrawing();
+    ClearBackground((Color){255, 255, 255, 255});
+    
+    DrawText("Obrigado por jogar!", screenWidth/2 - 200, screenHeight/2, 60, RED);
+
+    char *position_str = malloc(sizeof(char) * 32);
+    sprintf(position_str, "Placar: %d/8", game->position);
+    DrawText(position_str, screenWidth/2 - 200, screenHeight/2 - 100, 60, RED);
+
+    EndDrawing();
+
+    return;
+  }
+  
   game_update(game);
   game_draw(game);
 }
 
-void game_update(Context* game){
-  i32 screenWidth = GetScreenWidth();
-  i32 screenHeight = GetScreenHeight();
-  
-  f32 time = GetTime() ; 
-  SetShaderValue(game->bgShader, game->timeLoc, &time, SHADER_UNIFORM_FLOAT);
-  SetShaderValue(game->bgShader, game->playerLoc, &game->pirateShip.pos, SHADER_UNIFORM_VEC2); 
-  SetShaderValue(game->iceShader, game->timeLoc2, &time, SHADER_UNIFORM_FLOAT); 
-  
-  // Move square and update offset
+void update_and_collide(StackedSprite *entt, Context *game) {
 
-  if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
-    Vector2 mouse_pos = (Vector2){GetMouseX(), GetMouseY()};
-    Vector2 mouse_pos_world = GetScreenToWorld2D(mouse_pos, game->camera);
-    game->collisions[game->collisions_count].pos = mouse_pos_world;
-    game->collisions[game->collisions_count].radius = 10.0f;
-    game->collisions_count++;
+  Vector2 old_pos = (Vector2){entt->pos.x, entt->pos.y + entt->y_offset * 0};
+  Vector2 new_pos =
+      Vector2Add(old_pos, Vector2Scale(entt->vel, GetFrameTime()));
+
+  for (i32 i = 0; i < game->innerTrackCount - 1; i++) {
+    Vector2 line_pt1 = game->innerTrack[i].pos;
+    Vector2 line_pt2 = game->innerTrack[i + 1].pos;
+
+    Vector2 collision_pt;
+    f32 t;
+    if (sweptCircleLineCollision(entt->pos, new_pos, entt->radius, line_pt2,
+                                 line_pt1, &collision_pt, &t)) {
+      resolveCollision(&new_pos, &entt->vel, line_pt2, line_pt1, collision_pt);
+      entt->confused = true;
+    }
   }
-  update_player_stacked_sprite(&game->pirateShip);
- 
-  for(i32 i = 0; i < game->collisions_count; i++){ 
-    f32 posX = game->pirateShip.pos.x;
-    f32 posY = game->pirateShip.pos.y + game->pirateShip.y_offset;
-    f32 dist = Vector2Distance((Vector2){posX, posY}, game->collisions[i].pos);
-    // if(dist <= game->pirateShip.radius + game->collisions[i].radius - 2){
-      // game->pirateShip.confused = true;
-    // }  
+
+  for (i32 i = 0; i < game->outerTrackCount - 1; i++) {
+    Vector2 line_pt1 = game->outerTrack[i].pos;
+    Vector2 line_pt2 = game->outerTrack[i + 1].pos;
+
+    Vector2 collision_pt;
+    f32 t;
+    if (sweptCircleLineCollision(entt->pos, new_pos, entt->radius, line_pt1,
+                                 line_pt2, &collision_pt, &t)) {
+      resolveCollision(&new_pos, &entt->vel, line_pt1, line_pt2, collision_pt);
+      entt->confused = true;
+    }
   }
-  
-  
-  game->camera.target = (Vector2){game->pirateShip.pos.x, game->pirateShip.pos.y};  
+
+  entt->pos = new_pos;
+
+  if (lineCircle(game->checkMarks[entt->progress].pos,
+                 game->checkMarks[entt->progress + 1].pos, entt->pos,
+                 entt->radius)) {
+    entt->progress += 2;
+    entt->real_progress += 1;
+    entt->current_target_index += 1;
+    if (entt->progress == game->checkMarkCount) {
+      entt->progress = 0;
+      entt->lap += 1;
+      if (game->pirateShip.lap == 4)
+        game->end = true;
+    }
+  }
 }
 
+void game_update(Context *game) {
+  // printf("player: (%f, %f)\n", game->pirateShip.pos.x,
+  // game->pirateShip.pos.y);
 
-void game_draw(Context* game){
   i32 screenWidth = GetScreenWidth();
   i32 screenHeight = GetScreenHeight();
-  
+
+  f32 time = GetTime();
+  SetShaderValue(game->bgShader, game->timeLoc, &time, SHADER_UNIFORM_FLOAT);
+  SetShaderValue(game->bgShader, game->playerLoc, &game->pirateShip.pos,
+                 SHADER_UNIFORM_VEC2);
+  SetShaderValue(game->iceShader, game->timeLoc2, &time, SHADER_UNIFORM_FLOAT);
+
+  // Move square and update offset
+  if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+    Vector2 mouse_pos = (Vector2){GetMouseX(), GetMouseY()};
+    Vector2 mouse_pos_world = GetScreenToWorld2D(mouse_pos, game->camera);
+    game->selected[game->selectedCount].pos =
+        (Vector2){mouse_pos_world.x, mouse_pos_world.y};
+    game->selected[game->selectedCount].radius = 5;
+    game->selectedCount += 1;
+  }
+
+  update_player(&game->pirateShip);
+  update_and_collide(&game->pirateShip, game);
+
+  update_enemy(&game->gamutoShip);
+  update_and_collide(&game->gamutoShip, game);
+
+  update_enemy(&game->ghostShip);
+  update_and_collide(&game->ghostShip, game);
+
+  update_enemy(&game->jangadaShip);
+  update_and_collide(&game->jangadaShip, game);
+
+  update_enemy(&game->merryShip);
+  update_and_collide(&game->merryShip, game);
+
+  update_enemy(&game->monsterShip);
+  update_and_collide(&game->monsterShip, game);
+
+  update_enemy(&game->pinguimShip);
+  update_and_collide(&game->pinguimShip, game);
+
+  update_enemy(&game->windowsShip);
+  update_and_collide(&game->windowsShip, game);
+  //
+  game->camera.target =
+      (Vector2){game->pirateShip.pos.x, game->pirateShip.pos.y};
+}
+
+void game_draw(Context *game) {
+  i32 screenWidth = GetScreenWidth();
+  i32 screenHeight = GetScreenHeight();
+
   BeginDrawing();
   ClearBackground((Color){20, 30, 50, 255});
-  
-  // BeginShaderMode(game->bgShader);
-  DrawRectangle(0, 0, screenWidth, screenHeight, WHITE); 
-  // EndShaderMode();
 
-  BeginMode2D(game->camera); 
-
-  i32 tintColorLoc = GetShaderLocation(game->iceShader, "tintColor"); 
-  float ice_color[4] = {0.47f, 0.815f, 1.0f, 1.0f};
-  SetShaderValue(game->iceShader, tintColorLoc, &ice_color, SHADER_UNIFORM_VEC4);
-  
-  BeginShaderMode(game->iceShader);   
-  DrawTextureEx(game->map, (Vector2){0,0}, 0.0f, 2.0f, WHITE);
+  BeginShaderMode(game->bgShader);
+  DrawRectangle(0, 0, screenWidth, screenHeight, BLUE);
   EndShaderMode();
 
-  for(i32 i = 0; i < game->collisions_count; i++){
-    DrawCircleV(game->collisions[i].pos, game->collisions[i].radius, RED);
-  }
-  for(i32 i = 0; i < game->collisions_count-1; i++){
-    DrawLineEx(game->collisions[i].pos, game->collisions[i+1].pos, 2, GREEN);
-  }
-  
-  draw_stacked_sprite(&game->pirateShip); 
+  BeginMode2D(game->camera);
 
-  game->gamutoShip.angle = GetTime() * 10; 
-  draw_stacked_sprite(&game->gamutoShip); 
+  BeginShaderMode(game->iceShader);
+  DrawTextureEx(game->map, (Vector2){0, 0}, 0.0f, 2.0f, WHITE);
+  EndShaderMode();
 
-  game->ghostShip.angle = GetTime() * 10; 
+  // game->gamutoShip.angle = GetTime() * 10;
+  draw_stacked_sprite(&game->gamutoShip);
+
+  // game->ghostShip.angle = GetTime() * 10;
   draw_stacked_sprite(&game->ghostShip);
 
-  game->jangadaShip.angle = GetTime() * 10; 
+  // game->jangadaShip.angle = GetTime() * 10;
   draw_stacked_sprite(&game->jangadaShip);
-  
-  game->merryShip.angle = GetTime() * 10; 
+
+  // game->merryShip.angle = GetTime() * 10;
   draw_stacked_sprite(&game->merryShip);
 
-  game->monsterShip.angle = GetTime() * 10; 
+  // game->monsterShip.angle = GetTime() * 10;
   draw_stacked_sprite(&game->monsterShip);
 
-  game->pinguimShip.angle = GetTime() * 10; 
+  // game->pinguimShip.angle = GetTime() * 10;
   draw_stacked_sprite(&game->pinguimShip);
 
-  game->windowsShip.angle = GetTime() * 10; 
+  // game->windowsShip.angle = GetTime() * 10;
   draw_stacked_sprite(&game->windowsShip);
 
-  i32 tintColorLoc2 = GetShaderLocation(game->iceShader, "tintColor");  
-  float ice_color2[4] = {0.2f, 0.584f, 0.756f, 1.0f};
-  SetShaderValue(game->iceShader, tintColorLoc2, &ice_color2, SHADER_UNIFORM_VEC4); 
-  BeginShaderMode(game->iceShader);   
-  DrawTextureEx(game->map_overlay, game->map_overlay_offset, 0.0f, 2.0f, WHITE); 
+  draw_stacked_sprite(&game->pirateShip);
+
+  BeginShaderMode(game->tintShader);
+  DrawTextureEx(game->map_overlay, game->map_overlay_offset, 0.0f, 2.0f, WHITE);
   EndShaderMode();
-  
+
+  // for (i32 i = 0; i < game->innerTrackCount - 1; i++) {
+  //   DrawCircleV(game->innerTrack[i].pos, game->innerTrack[i].radius, RED);
+  //   DrawLineEx(game->innerTrack[i].pos, game->innerTrack[i + 1].pos, 2, GREEN);
+  // }
+  // DrawCircleV(game->innerTrack[game->innerTrackCount - 1].pos,
+  //             game->innerTrack[game->innerTrackCount - 1].radius, RED);
+  //
+  // for (i32 i = 0; i < game->outerTrackCount - 1; i++) {
+  //   DrawCircleV(game->outerTrack[i].pos, game->outerTrack[i].radius, RED);
+  //   DrawLineEx(game->outerTrack[i].pos, game->outerTrack[i + 1].pos, 2, GREEN);
+  // }
+  // DrawCircleV(game->outerTrack[game->outerTrackCount - 1].pos,
+  //             game->outerTrack[game->outerTrackCount - 1].radius, RED);
+  //
+  // for (i32 i = 0; i < game->checkMarkCount; i++) {
+  //   DrawCircleV(game->checkMarks[i].pos, game->checkMarks[i].radius, YELLOW);
+  // }
+  // if (game->checkMarkCount % 2 == 0) {
+  //   for (i32 i = 0; i < game->checkMarkCount; i += 2) {
+  //     DrawLineEx(game->checkMarks[i].pos, game->checkMarks[i + 1].pos, 2,
+  //                ORANGE);
+  //   }
+  // }
+  //
+  // for (i32 i = 0; i < game->gamutoShip.num_targets; i++) {
+  //   DrawCircleV(game->gamutoShip.targets[i], 5, GREEN);
+  // }
+
   EndMode2D();
- 
+
+  i32 all_progresses[7] = {
+      game->gamutoShip.real_progress,  game->ghostShip.real_progress,
+      game->jangadaShip.real_progress, game->merryShip.real_progress,
+      game->monsterShip.real_progress, game->pinguimShip.real_progress,
+      game->windowsShip.real_progress,
+  };
+  game->position = 8;
+  for (i32 i = 0; i < 8; i++) {
+    if (all_progresses[i] < game->pirateShip.real_progress) {
+      game->position -= 1;
+    }
+  }
+
   // FPS
   char* fps_str = malloc(sizeof(char) * 32);
   sprintf(fps_str, "FPS: %d", GetFPS());
   DrawText(fps_str, 20, 20, 20, RED);
-  
-  EndDrawing();  
+
+  char *lap_str = malloc(sizeof(char) * 32);
+  sprintf(lap_str, "Lap: %d/3", game->pirateShip.lap);
+  DrawText(lap_str, screenWidth - 300, 20, 60, RED);
+
+  char *position_str = malloc(sizeof(char) * 32);
+  sprintf(position_str, "Placar: %d/8", game->position);
+  DrawText(position_str, screenWidth - 394, 100, 60, RED);
+
+  EndDrawing();
 }
 
-void game_exit(void* ctx){
-  Context* game = (Context*) ctx;
+void game_exit(void *ctx) {
+  Context *game = (Context *)ctx;
   UnloadShader(game->bgShader);
   UnloadTexture(game->map);
 
-  // write_points_to_file("assets/colliders.dat", game->collisions, game->collisions_count); 
+  for (i32 i = 0; i < game->selectedCount; i++) {
+    printf("track[%d].pos = (Vector2){%f, %f};\n", i, game->selected[i].pos.x,
+           game->selected[i].pos.y);
+    printf("track[%d].radius = %f;\n", i, game->selected[i].radius);
+  }
 }

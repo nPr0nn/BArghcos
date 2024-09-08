@@ -26,7 +26,7 @@ int main(void) {
   i32 screenWidth  = 1280;
   i32 screenHeight = 720; 
 
-  // SetTraceLogLevel(LOG_NONE);
+  SetTraceLogLevel(LOG_NONE);
   SetConfigFlags(FLAG_MSAA_4X_HINT);
   SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 

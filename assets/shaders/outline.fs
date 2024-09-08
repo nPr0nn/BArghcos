@@ -4,7 +4,6 @@ in vec2 fragTexCoord;
 in vec4 fragColor;
 
 uniform float time;
-uniform vec4 tintColor;
 
 uniform sampler2D texture0;
 uniform vec4 colDiffuse;
@@ -15,7 +14,7 @@ out vec4 finalColor;
 void main()
 {
   float baseOutlineSize = 4.0; // Base outline size
-  float outlineSizeAmplitude = 3.0; // Amplitude of oscillation
+  float outlineSizeAmplitude = 4.0; // Amplitude of oscillation
   float outlineSizeFrequency = 1.0; // Frequency of oscillation
   vec4 outlineColor = vec4(0.8125, 0.9609, 0.9648, 1.0);
   
@@ -35,9 +34,10 @@ void main()
   corners.z = texture(texture0, fragTexCoord + vec2(-texelScale.x, texelScale.y)).a;
   corners.w = texture(texture0, fragTexCoord + vec2(-texelScale.x, -texelScale.y)).a;
   float outline = min(dot(corners, vec4(1.0)), 1.0);
-
+ 
   vec4 color = mix(vec4(0.0), outlineColor, outline);
-  finalColor = mix(color, tintColor, texel.a);
+
+  finalColor = mix(color, texel, texel.a);
 }
 
 

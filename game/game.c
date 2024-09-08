@@ -189,7 +189,7 @@ void game_init(void *ctx) {
   game->camera.target = (Vector2){0, 0};
   game->camera.offset = (Vector2){screenWidth * 0.5f, screenHeight * 0.5f - 64};
   game->camera.rotation = 0.0f;
-  game->camera.zoom = 5.0f;
+  game->camera.zoom = 4.5f;
 
   // Track points
 
@@ -219,6 +219,7 @@ void game_init(void *ctx) {
   //   printf("track[%d].radius = %f;\n", i, game->checkMarks[i].radius);
   // }
 
+  game->start = true;
   game->end = false;
 }
 
@@ -227,6 +228,7 @@ void game_draw(Context *game);
 
 void game_loop(void *ctx) {
   Context *game = (Context *)ctx;
+
   UpdateMusicStream(game->m);
 
   while(game->end) {
@@ -236,11 +238,11 @@ void game_loop(void *ctx) {
     BeginDrawing();
     ClearBackground((Color){255, 255, 255, 255});
     
-    DrawText("Obrigado por jogar!", screenWidth/2 - 200, screenHeight/2, 60, RED);
+    DrawText("Obrigado por jogar! :D", screenWidth/2 - 200, screenHeight/2, 60, BLACK);
 
     char *position_str = malloc(sizeof(char) * 32);
     sprintf(position_str, "Placar: %d/8", game->position);
-    DrawText(position_str, screenWidth/2 - 200, screenHeight/2 - 100, 60, RED);
+    DrawText(position_str, screenWidth/2 - 200, screenHeight/2 - 100, 60, BLACK);
 
     EndDrawing();
 
@@ -294,8 +296,12 @@ void update_and_collide(StackedSprite *entt, Context *game) {
     if (entt->progress == game->checkMarkCount) {
       entt->progress = 0;
       entt->lap += 1;
-      if (game->pirateShip.lap == 4)
+      if(entt->lap == 4){
+        entt->current_target_index = 0;
+      }
+      if (game->pirateShip.lap == 4){
         game->end = true;
+      }
     }
   }
 }
@@ -323,30 +329,32 @@ void game_update(Context *game) {
     game->selectedCount += 1;
   }
 
-  update_player(&game->pirateShip);
-  update_and_collide(&game->pirateShip, game);
+  if(game->start == false){   
+    update_player(&game->pirateShip);
+    update_and_collide(&game->pirateShip, game);
 
-  update_enemy(&game->gamutoShip);
-  update_and_collide(&game->gamutoShip, game);
+    update_enemy(&game->gamutoShip);
+    update_and_collide(&game->gamutoShip, game);
 
-  update_enemy(&game->ghostShip);
-  update_and_collide(&game->ghostShip, game);
+    update_enemy(&game->ghostShip);
+    update_and_collide(&game->ghostShip, game);
 
-  update_enemy(&game->jangadaShip);
-  update_and_collide(&game->jangadaShip, game);
+    update_enemy(&game->jangadaShip);
+    update_and_collide(&game->jangadaShip, game);
 
-  update_enemy(&game->merryShip);
-  update_and_collide(&game->merryShip, game);
+    update_enemy(&game->merryShip);
+    update_and_collide(&game->merryShip, game);
 
-  update_enemy(&game->monsterShip);
-  update_and_collide(&game->monsterShip, game);
+    update_enemy(&game->monsterShip);
+    update_and_collide(&game->monsterShip, game);
 
-  update_enemy(&game->pinguimShip);
-  update_and_collide(&game->pinguimShip, game);
+    update_enemy(&game->pinguimShip);
+    update_and_collide(&game->pinguimShip, game);
 
-  update_enemy(&game->windowsShip);
-  update_and_collide(&game->windowsShip, game);
-  //
+    update_enemy(&game->windowsShip);
+    update_and_collide(&game->windowsShip, game);
+  }
+
   game->camera.target =
       (Vector2){game->pirateShip.pos.x, game->pirateShip.pos.y};
 }
@@ -354,7 +362,7 @@ void game_update(Context *game) {
 void game_draw(Context *game) {
   i32 screenWidth = GetScreenWidth();
   i32 screenHeight = GetScreenHeight();
-
+  
   BeginDrawing();
   ClearBackground((Color){20, 30, 50, 255});
 
@@ -394,7 +402,7 @@ void game_draw(Context *game) {
   BeginShaderMode(game->tintShader);
   DrawTextureEx(game->map_overlay, game->map_overlay_offset, 0.0f, 2.0f, WHITE);
   EndShaderMode();
-
+  
   // for (i32 i = 0; i < game->innerTrackCount - 1; i++) {
   //   DrawCircleV(game->innerTrack[i].pos, game->innerTrack[i].radius, RED);
   //   DrawLineEx(game->innerTrack[i].pos, game->innerTrack[i + 1].pos, 2, GREEN);
@@ -425,6 +433,14 @@ void game_draw(Context *game) {
 
   EndMode2D();
 
+  if (game->start == true){
+    DrawText("Press Space to Start", screenWidth / 2 - 200, screenHeight / 2 - 50, 40, BLACK);
+    DrawText("Press Space to Start", screenWidth / 2 - 200 + 3, screenHeight / 2 - 50 + 3, 40, WHITE); 
+    if( (GetKeyPressed() == KEY_SPACE) || (IsGamepadButtonPressed(0, 5) || IsGamepadButtonPressed(0, 6) || IsGamepadButtonPressed(0, 7) || IsGamepadButtonPressed(0, 8)) ) {
+      game->start = false;
+    }
+  }
+
   i32 all_progresses[7] = {
       game->gamutoShip.real_progress,  game->ghostShip.real_progress,
       game->jangadaShip.real_progress, game->merryShip.real_progress,
@@ -441,15 +457,18 @@ void game_draw(Context *game) {
   // FPS
   char* fps_str = malloc(sizeof(char) * 32);
   sprintf(fps_str, "FPS: %d", GetFPS());
-  DrawText(fps_str, 20, 20, 20, RED);
+  DrawText(fps_str, 20, 20, 40, BLACK);
+  DrawText(fps_str, 20+3, 20+3, 40, WHITE);
 
   char *lap_str = malloc(sizeof(char) * 32);
   sprintf(lap_str, "Lap: %d/3", game->pirateShip.lap);
-  DrawText(lap_str, screenWidth - 300, 20, 60, RED);
+  DrawText(lap_str, screenWidth - 300, 20, 60, BLACK); 
+  DrawText(lap_str, screenWidth - 300 + 3, 20 + 3, 60, WHITE);
 
   char *position_str = malloc(sizeof(char) * 32);
   sprintf(position_str, "Placar: %d/8", game->position);
-  DrawText(position_str, screenWidth - 394, 100, 60, RED);
+  DrawText(position_str, screenWidth - 394, 100, 60, BLACK);
+  DrawText(position_str, screenWidth - 394 + 3, 100 + 3, 60, WHITE);
 
   EndDrawing();
 }

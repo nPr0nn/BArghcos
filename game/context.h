@@ -9,6 +9,7 @@
 #include "points.h"
 
 typedef struct Context {
+  bool start;
 
   Music m;
   i32 position;

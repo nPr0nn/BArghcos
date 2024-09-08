@@ -87,6 +87,8 @@ void create_targets(StackedSprite* stacked_sprite, Point* lines, i32 num_lines){
   }
 }
 
+#define PS3_NAME_ID         "Sony PLAYSTATION(R)3 Controller"
+
 void update_player(StackedSprite* player){
 
   // printf("%f %f\n", player->pos.x, player->pos.y);
@@ -103,17 +105,17 @@ void update_player(StackedSprite* player){
     }
   }
 
-  if(IsKeyDown(KEY_RIGHT) & !player->confused) {    
+  if((IsKeyDown(KEY_RIGHT) || IsGamepadButtonDown(0, 12))& !player->confused) {    
     player->angle += 1.5f;
     player->steering = true;
   }
-  if(IsKeyDown(KEY_LEFT) & !player->confused) {
+  if((IsKeyDown(KEY_LEFT) || IsGamepadButtonDown(0, 10))& !player->confused) {
     player->angle -= 1.5f;
     player->steering = true;
   }  
   player->dir = Vector2Rotate((Vector2){player->radius, 0.0f}, player->angle * DEG2RAD);   
 
-  if(IsKeyDown(KEY_SPACE) & !player->confused) {
+  if((IsKeyDown(KEY_SPACE) || IsGamepadButtonDown(0, 5) || IsGamepadButtonDown(0, 6) || IsGamepadButtonDown(0, 7) || IsGamepadButtonDown(0, 8) )& !player->confused) {
     player->acc = 32.0f;
     player->speed += player->acc * GetFrameTime(); 
   } 
@@ -167,7 +169,9 @@ void draw_stacked_sprite(StackedSprite* stacked_sprite){
 
   // Collision Center
   Vector2 center = Vector2Rotate((Vector2){posX, posY + stacked_sprite->y_offset}, 0);
-   
+  
+  // DrawCircleV(center, 10, WHITE);
+
   for(i32 i = stacked_sprite->num_layers-1; i >= 0; i--){
     f32 updated_posY = posY + i*stacked_sprite->scale;
     Rectangle destRec = { posX, updated_posY, (f32)stacked_sprite->sprites[0].width, (f32)stacked_sprite->sprites[0].height }; 

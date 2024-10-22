@@ -15,7 +15,7 @@ void help();
 int main(int argc, char *argv[]) {
   int platform = 0; // desktop
   if(argc > 1) platform = atoi(argv[1]);
-  // build_raylib(platform);
+  build_raylib(platform);
   build_app(platform);
   return 0;
 }

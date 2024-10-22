@@ -51,7 +51,7 @@
 
 #define GLFW_INCLUDE_NONE       // Disable the standard OpenGL header inclusion on GLFW3
                                 // NOTE: Already provided by rlgl implementation (on glad.h)
-#include "GLFW/glfw3.h"         // GLFW3 library: Windows, OpenGL context and Input management
+#include "../external/glfw/include/GLFW/glfw3.h"         // GLFW3 library: Windows, OpenGL context and Input management
                                 // NOTE: GLFW3 already includes gl.h (OpenGL) headers
 
 // Support retrieving native window handlers
@@ -61,7 +61,7 @@
     typedef HANDLE HWND;
     #define GLFW_EXPOSE_NATIVE_WIN32
     #define GLFW_NATIVE_INCLUDE_NONE // To avoid some symbols re-definition in windows.h
-    #include "GLFW/glfw3native.h"
+    #include "../external/glfw/include/GLFW/glfw3native.h"
 
     #if defined(SUPPORT_WINMM_HIGHRES_TIMER) && !defined(SUPPORT_BUSY_WAIT_LOOP)
         // NOTE: Those functions require linking with winmm library
@@ -81,7 +81,7 @@
 
     //#define GLFW_EXPOSE_NATIVE_COCOA    // WARNING: Fails due to type redefinition
     void *glfwGetCocoaWindow(GLFWwindow* handle);
-    #include "GLFW/glfw3native.h"       // Required for: glfwGetCocoaWindow()
+    #include "../external/glfw/include/GLFW/glfw3native.h"       // Required for: glfwGetCocoaWindow()
 #endif
 
 //----------------------------------------------------------------------------------
